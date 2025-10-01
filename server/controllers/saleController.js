@@ -1,0 +1,175 @@
+import Sale from "../models/Sale.js";
+import Product from "../models/Product.js";
+import InventoryTransaction from "../models/InventoryTransaction.js";
+
+// Create new sale
+export const createSale = async (req, res) => {
+  try {
+    const { products, paymentMethod, customer } = req.body;
+
+    let totalAmount = 0;
+    const saleProducts = [];
+
+    // Validate products and calculate total
+    for (const item of products) {
+      const product = await Product.findById(item.product);
+      if (!product) {
+        return res.status(404).json({ error: `Product ${item.product} not found` });
+      }
+
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          error: `Insufficient stock for ${product.name}. Available: ${product.stock}`
+        });
+      }
+
+      const price = item.price || product.price;
+      totalAmount += price * item.quantity;
+
+      saleProducts.push({
+        product: item.product,
+        quantity: item.quantity,
+        price: price
+      });
+    }
+
+    // Create sale
+    const sale = new Sale({
+      products: saleProducts,
+      totalAmount,
+      paymentMethod,
+      customer,
+      cashier: req.user._id
+    });
+
+    await sale.save();
+
+    // Update product stock and create inventory transactions
+    for (const item of saleProducts) {
+      const product = await Product.findById(item.product);
+      product.stock -= item.quantity;
+      await product.save();
+
+      // Create inventory transaction
+      const transaction = new InventoryTransaction({
+        product: item.product,
+        quantity: item.quantity,
+        transactionType: "out",
+        reference: `Sale ${sale._id}`
+      });
+      await transaction.save();
+    }
+
+    await sale.populate([
+      { path: 'products.product', select: 'name category' },
+      { path: 'cashier', select: 'name' }
+    ]);
+
+    res.status(201).json({ sale });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get all sales with pagination
+export const getSales = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, startDate, endDate, cashier } = req.query;
+    const skip = (page - 1) * limit;
+
+    let query = {};
+
+    if (startDate && endDate) {
+      query.saleDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (cashier) query.cashier = cashier;
+
+    const sales = await Sale.find(query)
+      .populate('products.product', 'name category price')
+      .populate('cashier', 'name')
+      .sort({ saleDate: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Sale.countDocuments(query);
+
+    res.json({
+      sales,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalSales: total,
+        hasNext: page * limit < total,
+        hasPrev: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get single sale
+export const getSale = async (req, res) => {
+  try {
+    const sale = await Sale.findById(req.params.id)
+      .populate('products.product', 'name category price')
+      .populate('cashier', 'name');
+
+    if (!sale) {
+      return res.status(404).json({ error: "Sale not found" });
+    }
+
+    res.json({ sale });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get sales summary
+export const getSalesSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let matchQuery = {};
+    if (startDate && endDate) {
+      matchQuery.saleDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const summary = await Sale.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: 1 },
+          totalRevenue: { $sum: "$totalAmount" },
+          averageSale: { $avg: "$totalAmount" }
+        }
+      }
+    ]);
+
+    const paymentMethodSummary = await Sale.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: "$paymentMethod",
+          count: { $sum: 1 },
+          total: { $sum: "$totalAmount" }
+        }
+      }
+    ]);
+
+    res.json({
+      summary: summary[0] || { totalSales: 0, totalRevenue: 0, averageSale: 0 },
+      paymentMethods: paymentMethodSummary
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
