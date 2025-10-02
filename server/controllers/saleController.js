@@ -1,6 +1,7 @@
 import Sale from "../models/Sale.js";
 import Product from "../models/Product.js";
 import InventoryTransaction from "../models/InventoryTransaction.js";
+import { Parser } from 'json2csv';
 
 // Create new sale
 export const createSale = async (req, res) => {
@@ -169,6 +170,44 @@ export const getSalesSummary = async (req, res) => {
       summary: summary[0] || { totalSales: 0, totalRevenue: 0, averageSale: 0 },
       paymentMethods: paymentMethodSummary
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Export sales report to CSV
+export const exportSalesReport = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let query = {};
+    if (startDate && endDate) {
+      query.saleDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const sales = await Sale.find(query)
+      .populate('products.product', 'name')
+      .populate('cashier', 'name')
+      .sort({ saleDate: -1 });
+
+    const data = sales.map(sale => ({
+      SaleID: sale._id,
+      Date: sale.saleDate.toISOString().split('T')[0],
+      TotalAmount: sale.totalAmount,
+      PaymentMethod: sale.paymentMethod,
+      Cashier: sale.cashier.name,
+      Products: sale.products.map(p => `${p.product.name} (${p.quantity})`).join('; ')
+    }));
+
+    const parser = new Parser();
+    const csv = parser.parse(data);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('sales_report.csv');
+    res.send(csv);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

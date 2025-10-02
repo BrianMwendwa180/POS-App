@@ -1,5 +1,6 @@
 import InventoryTransaction from "../models/InventoryTransaction.js";
 import Product from "../models/Product.js";
+import { Parser } from 'json2csv';
 
 // Get inventory transactions with pagination
 export const getInventoryTransactions = async (req, res) => {
@@ -174,6 +175,37 @@ export const getInventoryValueReport = async (req, res) => {
         totalProfit: totalValue - totalCost
       }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Export inventory report to CSV
+export const exportInventoryReport = async (req, res) => {
+  try {
+    const products = await Product.find({ isActive: true })
+      .select('name category stock minStock maxStock sku barcode price cost')
+      .sort({ stock: 1 });
+
+    const data = products.map(product => ({
+      Name: product.name,
+      Category: product.category,
+      Stock: product.stock,
+      MinStock: product.minStock,
+      MaxStock: product.maxStock,
+      SKU: product.sku,
+      Barcode: product.barcode,
+      Price: product.price,
+      Cost: product.cost,
+      Status: product.stock <= product.minStock ? 'Low Stock' : 'In Stock'
+    }));
+
+    const parser = new Parser();
+    const csv = parser.parse(data);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('inventory_report.csv');
+    res.send(csv);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

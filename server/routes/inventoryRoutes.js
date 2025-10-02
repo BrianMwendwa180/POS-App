@@ -4,7 +4,8 @@ import {
   getInventoryLevels,
   adjustInventory,
   getInventoryAlerts,
-  getInventoryValueReport
+  getInventoryValueReport,
+  exportInventoryReport
 } from "../controllers/inventoryController.js";
 import { requireAuth, requireManager } from "../middlewares/authMiddleware_new.js";
 import { requirePermission, PERMISSIONS } from "../middlewares/permissionsMiddleware.js";
@@ -15,6 +16,7 @@ router.get("/transactions", requireAuth, requirePermission(PERMISSIONS.VIEW), ge
 router.get("/levels", requireAuth, requirePermission(PERMISSIONS.VIEW), getInventoryLevels);
 router.get("/alerts", requireAuth, requirePermission(PERMISSIONS.VIEW), getInventoryAlerts);
 router.get("/value-report", requireAuth, requirePermission(PERMISSIONS.VIEW), getInventoryValueReport);
+router.get("/export", requireAuth, requirePermission(PERMISSIONS.VIEW), exportInventoryReport);
 router.post("/adjust", requireAuth, requirePermission(PERMISSIONS.UPDATE), adjustInventory);
 
 export default router;

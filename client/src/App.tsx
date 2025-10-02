@@ -5,6 +5,8 @@ import { Dashboard } from './components/Dashboard/Dashboard';
 import { POSSystem } from './components/POS/POSSystem';
 import { Inventory } from './components/Inventory/Inventory';
 import { Customers } from './components/Customers/Customers';
+import { Suppliers } from './components/Suppliers/Suppliers';
+import Reports from './components/Reports/Reports';
 import { LoginForm } from './components/Auth/LoginForm';
 import { useAuthProvider, useAuth, AuthContext } from './hooks/useAuth';
 
@@ -32,9 +34,9 @@ const AppContent: React.FC = () => {
       case 'customers':
         return <Customers />;
       case 'suppliers':
-        return <div className="p-6"><h2 className="text-2xl font-bold">Suppliers - Coming Soon</h2></div>;
+        return <Suppliers />;
       case 'reports':
-        return <div className="p-6"><h2 className="text-2xl font-bold">Reports - Coming Soon</h2></div>;
+        return <Reports />;
       case 'alerts':
         return <div className="p-6"><h2 className="text-2xl font-bold">Alerts - Coming Soon</h2></div>;
       case 'settings':

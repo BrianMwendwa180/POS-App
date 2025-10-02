@@ -1,5 +1,6 @@
 import Supplier from "../models/Supplier.js";
 import Product from "../models/Product.js";
+import { Parser } from 'json2csv';
 
 // Get all suppliers
 export const getSuppliers = async (req, res) => {
@@ -147,6 +148,31 @@ export const getSupplierReport = async (req, res) => {
     );
 
     res.json({ report });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Export suppliers report to CSV
+export const exportSuppliersReport = async (req, res) => {
+  try {
+    const suppliers = await Supplier.find({ isActive: true }).sort({ name: 1 });
+
+    const data = suppliers.map(supplier => ({
+      Name: supplier.name,
+      ContactPerson: supplier.contactPerson || '',
+      Email: supplier.email || '',
+      Phone: supplier.phone || '',
+      Address: supplier.address || '',
+      Status: supplier.isActive ? 'Active' : 'Inactive'
+    }));
+
+    const parser = new Parser();
+    const csv = parser.parse(data);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('suppliers_report.csv');
+    res.send(csv);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

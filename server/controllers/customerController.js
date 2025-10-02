@@ -1,5 +1,6 @@
 import Customer from "../models/Customer.js";
 import Sale from "../models/Sale.js";
+import { Parser } from 'json2csv';
 
 // Get all customers
 export const getCustomers = async (req, res) => {
@@ -128,6 +129,42 @@ export const deleteCustomer = async (req, res) => {
 
     await Customer.findByIdAndDelete(req.params.id);
     res.json({ message: "Customer deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Export customers report to CSV
+export const exportCustomersReport = async (req, res) => {
+  try {
+    const customers = await Customer.find().sort({ createdAt: -1 });
+
+    // Calculate stats for each customer
+    const customersWithStats = await Promise.all(
+      customers.map(async (customer) => {
+        const sales = await Sale.find({ customer: customer.name });
+        const totalPurchases = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+        const lastPurchase = sales.length > 0
+          ? sales.sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate))[0].saleDate
+          : null;
+
+        return {
+          Name: customer.name,
+          Email: customer.email || '',
+          Phone: customer.phone || '',
+          Address: customer.address || '',
+          TotalPurchases: totalPurchases,
+          LastPurchase: lastPurchase ? lastPurchase.toISOString().split('T')[0] : ''
+        };
+      })
+    );
+
+    const parser = new Parser();
+    const csv = parser.parse(customersWithStats);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment('customers_report.csv');
+    res.send(csv);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
