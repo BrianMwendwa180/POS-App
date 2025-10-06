@@ -110,6 +110,16 @@ export const fetchSalesSummary = (startDate?: string, endDate?: string) => {
   return apiRequest(`/sales/summary?${params}`);
 };
 
+export const fetchSalesAlerts = () => apiRequest('/sales/alerts');
+
+export const fetchPaymentAlerts = () => apiRequest('/sales/payment-alerts');
+
+export const fetchCustomerAlerts = () => apiRequest('/customers/alerts');
+
+export const fetchStaffSecurityAlerts = () => apiRequest('/sales/staff-security-alerts');
+
+export const fetchSystemDeviceAlerts = () => apiRequest('/inventory/system-device-alerts');
+
 // ----------------- Auth Endpoints -----------------
 export const registerUser = (userData: any) =>
   apiRequest('/auth/register', {

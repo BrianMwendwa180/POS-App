@@ -180,6 +180,48 @@ export const getInventoryValueReport = async (req, res) => {
   }
 };
 
+// Get system device alerts
+export const getSystemDeviceAlerts = async (req, res) => {
+  try {
+    // Products with negative stock (system error)
+    const negativeStockProducts = await Product.find({
+      isActive: true,
+      stock: { $lt: 0 }
+    }).select('name stock category');
+
+    // Overstock products
+    const overStockProducts = await Product.find({
+      isActive: true,
+      $expr: { $gt: ["$stock", "$maxStock"] }
+    }).select('name stock maxStock category');
+
+    // Recent inventory transactions with large adjustments (potential errors)
+    const recentTransactions = await InventoryTransaction.find({
+      transactionDate: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // last 7 days
+    })
+      .populate('product', 'name')
+      .sort({ transactionDate: -1 })
+      .limit(20);
+
+    const largeAdjustments = recentTransactions.filter(t => Math.abs(t.quantity) > 100);
+
+    res.json({
+      systemAlerts: {
+        negativeStock: negativeStockProducts,
+        overStock: overStockProducts,
+        largeAdjustments
+      },
+      counts: {
+        negativeStock: negativeStockProducts.length,
+        overStock: overStockProducts.length,
+        largeAdjustments: largeAdjustments.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Export inventory report to CSV
 export const exportInventoryReport = async (req, res) => {
   try {

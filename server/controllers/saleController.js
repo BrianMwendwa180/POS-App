@@ -1,6 +1,7 @@
 import Sale from "../models/Sale.js";
 import Product from "../models/Product.js";
 import InventoryTransaction from "../models/InventoryTransaction.js";
+import User from "../models/User.js";
 import { Parser } from 'json2csv';
 
 // Create new sale
@@ -169,6 +170,79 @@ export const getSalesSummary = async (req, res) => {
     res.json({
       summary: summary[0] || { totalSales: 0, totalRevenue: 0, averageSale: 0 },
       paymentMethods: paymentMethodSummary
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get sales alerts
+export const getSalesAlerts = async (req, res) => {
+  try {
+    // Pending or cancelled sales
+    const pendingOrCancelled = await Sale.find({
+      status: { $in: ['pending', 'cancelled'] }
+    })
+      .populate('products.product', 'name')
+      .populate('cashier', 'name')
+      .sort({ saleDate: -1 })
+      .limit(10);
+
+    // High value sales (above 1000)
+    const highValue = await Sale.find({
+      totalAmount: { $gt: 1000 },
+      status: 'completed'
+    })
+      .populate('products.product', 'name')
+      .populate('cashier', 'name')
+      .sort({ saleDate: -1 })
+      .limit(10);
+
+    res.json({
+      pendingOrCancelled,
+      highValue
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get payment alerts
+export const getPaymentAlerts = async (req, res) => {
+  try {
+    // Cancelled sales as payment failures
+    const failedPayments = await Sale.find({
+      status: 'cancelled'
+    })
+      .populate('products.product', 'name')
+      .populate('cashier', 'name')
+      .sort({ saleDate: -1 })
+      .limit(10);
+
+    res.json({
+      failedPayments
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get staff security alerts
+export const getStaffSecurityAlerts = async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Staff who have processed sales in last 30 days
+    const activeStaffIds = await Sale.distinct('cashier', {
+      saleDate: { $gte: thirtyDaysAgo }
+    });
+
+    const allStaff = await User.find({ role: { $in: ['cashier', 'manager'] } });
+    const inactiveStaffDetails = allStaff.filter(staff => !activeStaffIds.some(id => id.equals(staff._id)));
+
+    res.json({
+      inactiveStaff: inactiveStaffDetails.slice(0, 10)
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

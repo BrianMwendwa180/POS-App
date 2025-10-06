@@ -5,6 +5,7 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  getCustomerAlerts,
   exportCustomersReport,
 } from "../controllers/customerController.js";
 import { requireAuth } from "../middlewares/authMiddleware_new.js";
@@ -13,6 +14,7 @@ import { requirePermission, PERMISSIONS } from "../middlewares/permissionsMiddle
 const router = express.Router();
 
 router.get("/", requireAuth, requirePermission(PERMISSIONS.VIEW), getCustomers);
+router.get("/alerts", requireAuth, requirePermission(PERMISSIONS.VIEW), getCustomerAlerts);
 router.get("/export", requireAuth, requirePermission(PERMISSIONS.VIEW), exportCustomersReport);
 router.get("/:id", requireAuth, requirePermission(PERMISSIONS.READ), getCustomer);
 router.post("/", requireAuth, requirePermission(PERMISSIONS.CREATE), createCustomer);

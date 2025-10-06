@@ -134,6 +134,28 @@ export const deleteCustomer = async (req, res) => {
   }
 };
 
+// Get customer alerts
+export const getCustomerAlerts = async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Customers with no purchase in last 30 days
+    const inactiveCustomers = await Customer.find({
+      $or: [
+        { lastPurchase: { $lt: thirtyDaysAgo } },
+        { lastPurchase: null }
+      ]
+    }).sort({ lastPurchase: 1 }).limit(10);
+
+    res.json({
+      inactiveCustomers
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Export customers report to CSV
 export const exportCustomersReport = async (req, res) => {
   try {
